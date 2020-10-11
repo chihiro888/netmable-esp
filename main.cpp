@@ -36,6 +36,12 @@ typedef struct _vector2D {
     int y;
 } vector2D;
 
+std::list<vector2D> originList;
+std::list<vector2D> cloneList;
+
+int failCnt;
+int solveCnt;
+
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
 void initMaskArray() {
@@ -113,7 +119,6 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
         initMaskArray();
 
         // 이웃 가로축 마스킹
-        /*
         for (int x = 0; x < 12; x++) {
             for (int y = 0; y < 22; y++) {
                 if (y + 1 != 22 && result[x][y] != 0 && result[x][y] != 67 && result[x][y] == result[x][y + 1]) {
@@ -123,10 +128,8 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
                 }
             }
         }
-        */
 
         // 이웃 세로축 마스킹
-        /*
         for (int y = 0; y < 22; y++) {
             for (int x = 0; x < 12; x++) {
                 if (x + 1 != 12 && result[x][y] != 0 && result[x][y] != 67 && result[x][y] == result[x + 1][y]) {
@@ -136,7 +139,6 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
                 }
             }
         }
-        */
 
         for (int y = 0; y < 22; y++) {
             for (int x = 0; x < 12; x++) {
@@ -148,10 +150,15 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
                         } else {
                             int clone = result[xx][yy];
                             if (result[x][y] != 0 && result[x][y] != 67 && result[xx][yy] != 0 && result[xx][yy] != 67 && result[x][y] == result[xx][yy]) {
+
+                                originList.clear();
+                                cloneList.clear();
+
                                 // up (x y)
                                 for (int i = x - 1; i > -1; i--) {
                                     if (result[i][y] == 0) {
-                                        mask[i][y] = 11;
+                                        vector2D temp = { i, y };
+                                        originList.push_back(temp);
                                     } else {
                                         break;
                                     }
@@ -160,7 +167,8 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
                                 // up (xx yy)
                                 for (int i = xx - 1; i > -1; i--) {
                                     if (result[i][yy] == 0) {
-                                        mask[i][yy] = 11;
+                                        vector2D temp = { i, yy };
+                                        cloneList.push_back(temp);
                                     } else {
                                         break;
                                     }
@@ -169,7 +177,8 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
                                 // down (x y)
                                 for (int i = x + 1; i < 12; i++) {
                                     if (result[i][y] == 0) {
-                                        mask[i][y] = 11;
+                                        vector2D temp = { i, y };
+                                        originList.push_back(temp);
                                     } else {
                                         break;
                                     }
@@ -178,7 +187,8 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
                                 // down (xx yy)
                                 for (int i = xx + 1; i < 12; i++) {
                                     if (result[i][yy] == 0) {
-                                        mask[i][yy] = 11;
+                                        vector2D temp = { i, yy };
+                                        cloneList.push_back(temp);
                                     } else {
                                         break;
                                     }
@@ -187,7 +197,8 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
                                 // right (x y)
                                 for (int i = y+1; i < 22; i++) {
                                     if (result[x][i] == 0) {
-                                        mask[x][i] = 11;
+                                        vector2D temp = { x, i };
+                                        originList.push_back(temp);
                                     } else {
                                         break;
                                     }
@@ -196,7 +207,8 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
                                 // right (xx yy)
                                 for (int i = yy+1; i < 22; i++) {
                                     if (result[xx][i] == 0) {
-                                        mask[xx][i] = 11;
+                                        vector2D temp = { xx, i };
+                                        cloneList.push_back(temp);
                                     } else {
                                         break;
                                     }
@@ -205,7 +217,8 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
                                 // left (x y)
                                 for (int i = y-1; i > -1; i--) {
                                     if (result[x][i] == 0) {
-                                        mask[x][i] = 11;
+                                        vector2D temp = { x, i };
+                                        originList.push_back(temp);
                                     } else {
                                         break;
                                     }
@@ -214,15 +227,89 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
                                 // left (xx yy)
                                 for (int i = yy-1; i > -1; i--) {
                                     if (result[xx][i] == 0) {
-                                        mask[xx][i] = 11;
+                                        vector2D temp = { xx, i };
+                                        cloneList.push_back(temp);
                                     } else {
                                         break;
                                     }
                                 }
 
-                                mask[x][y] = 11;
-                                mask[xx][yy] = 11;
-                                goto EXIT;
+                                std::list<vector2D>::iterator originIter;
+                                std::list<vector2D>::iterator cloneIter;
+
+                                // debug box
+                                /*
+                                for (originIter = originList.begin(); originIter != originList.end(); ++originIter) {
+                                    mask[originIter->x][originIter->y] = 11;
+                                }
+
+                                for (cloneIter = cloneList.begin(); cloneIter != cloneList.end(); ++cloneIter) {
+                                    mask[cloneIter->x][cloneIter->y] = 11;
+                                }
+                                */
+
+                                failCnt = 0;
+                                solveCnt = 0;
+
+                                for (originIter = originList.begin(); originIter != originList.end(); ++originIter) {
+                                    for (cloneIter = cloneList.begin(); cloneIter != cloneList.end(); ++cloneIter) {
+                                        // 행 같을 때
+                                        if (originIter->x == cloneIter->x) {
+                                            // 원본이 우
+                                            if (originIter->y > cloneIter->y) {
+                                                for (int i = cloneIter->y + 1; i < originIter->y; i++) {
+                                                    if (result[originIter->x][i] != 0) {
+                                                        failCnt += 1;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            // 원본이 좌
+                                            if (originIter->y < cloneIter->y) {
+                                                for (int i = originIter->y + 1; i < cloneIter->y; i++) {
+                                                    if (result[originIter->x][i] != 0) {
+                                                        failCnt += 1;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if (failCnt == 0) {
+                                                solveCnt += 1;
+                                            }
+                                        }
+
+                                        // 열 같을 때
+                                        if (originIter->y == cloneIter->y) {
+                                            // 원본이 하
+                                            if (originIter->x > cloneIter->x) {
+                                                for (int i = cloneIter->x + 1; i < originIter->x; i++) {
+                                                    if (result[i][originIter->y] != 0) {
+                                                        failCnt += 1;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            // 원본이 상
+                                            if (originIter->x < cloneIter->x) {
+                                                for (int i = originIter->x + 1; i < cloneIter->x; i++) {
+                                                    if (result[i][originIter->y] != 0) {
+                                                        failCnt += 1;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                            if (failCnt == 0) {
+                                                solveCnt += 1;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (solveCnt > 0) {
+                                    mask[x][y] = 11;
+                                    mask[xx][yy] = 11;
+                                    goto EXIT;
+                                }
                             }
                         }
                     }
@@ -231,7 +318,7 @@ DWORD WINAPI scanMemory(LPVOID lpParam) {
         }
 
         EXIT:
-            Sleep(100);
+            // Sleep(300);
             InvalidateRect(hWnd, NULL, TRUE);
     }
 }
@@ -317,3 +404,4 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     return 0;
 }
+
